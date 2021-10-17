@@ -1,0 +1,127 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Generate Car Report Using Sellenium
+    
+Parameters:
+    BucketName:
+        Description: S3 Bucket
+        Type: String    
+
+    SourceFolder:
+        Description: folder in S3 Bucket where source files are located (lambda)
+        Type: String
+        Default: "src"
+
+    ReportFolder:
+        Description: folder in S3 Bucket where store reports
+        Type: String
+        Default: "pre_inspection_reports"
+
+Resources:
+
+    ReportFunctionRole:
+        Type: AWS::IAM::Role
+        Properties:
+            AssumeRolePolicyDocument:
+                Version: '2012-10-17'
+                Statement:
+                -   Effect: Allow
+                    Principal:
+                        Service:
+                        - lambda.amazonaws.com
+                    Action:
+                    - sts:AssumeRole
+            Policies:
+                -   PolicyName: Allow-logs
+                    PolicyDocument:
+                        Version: '2012-10-17'
+                        Statement:
+                        -   Effect: Allow
+                            Action:
+                            - 'logs:CreateLogGroup'
+                            - 'logs:CreateLogStream'
+                            - 'logs:PutLogEvents'
+                            Resource: arn:aws:logs:*:*:*
+                -   PolicyName: GetSqs
+                    PolicyDocument:
+                        Version: '2012-10-17'
+                        Statement:
+                        -   Effect: Allow
+                            Action:
+                                - 'sqs:*'
+                            Resource: arn:aws:sqs:*:*:*
+                -   PolicyName: PutGetItem
+                    PolicyDocument:
+                        Version: '2012-10-17'
+                        Statement:
+                            -   Effect: Allow
+                                Action:
+                                    - 'dynamodb:PutItem'
+                                    - 'dynamodb:UpdateItem'
+                                    - 'dynamodb:DescribeTable'
+                                    - 'dynamodb:GetItem'
+                                Resource: arn:aws:dynamodb:*:*:*
+                -   PolicyName: BucketGetPutObject
+                    PolicyDocument:
+                        Version: '2012-10-17'
+                        Statement:
+                        -   Effect: Allow
+                            Action:
+                            - 's3:GetObject'
+                            - 's3:PutObject'
+                            Resource: 
+                                Fn::Join: ["", ["arn:aws:s3:::", Ref: "BucketName", "/*"]] 
+                
+
+    ReportFunction:
+        Type: AWS::Lambda::Function
+        Properties:
+            Runtime: python3.7
+            FunctionName: 'lead-management-report'
+            Description: Function to to create a report.
+            Handler: src/lambda_function.lambda_handler
+            Role:
+                Fn::GetAtt: [ "ReportFunctionRole", "Arn" ]
+            Environment:
+                Variables:
+                    PYTHONPATH: "/var/task/src:/opt/python"
+                    PATH: "/opt/bin:/opt/bin/lib"
+                    BUCKET:
+                        Ref: BucketName
+                    DESTPATH:
+                        Ref: ReportFolder
+            Timeout: 300
+            MemorySize: 2048
+            Code:
+                S3Bucket: 
+                    Ref: BucketName
+                S3Key: 
+                    Fn::Sub: '${SourceFolder}/LeadManagementReport.zip'
+            Layers:
+                - Ref: SeleniumChromiumLayer
+
+    SeleniumChromiumLayer:
+        Type: AWS::Lambda::LayerVersion
+        Properties:
+            CompatibleRuntimes:
+                - python3.7
+                - python3.6
+            Content:
+                S3Bucket: 
+                    Ref: BucketName
+                S3Key: 
+                    Fn::Sub: '${SourceFolder}/SeleniumChromiumLayer.zip'
+            Description: Selenium and Chromium Layer for Python3.6
+
+    SqsQueue:
+        Type: "AWS::SQS::Queue"
+        Properties:
+            QueueName: "IdQueue"
+            VisibilityTimeout: 120
+
+    LambdaFunctionEventSourceMapping:
+        Type: AWS::Lambda::EventSourceMapping
+        Properties:
+            BatchSize: 10
+            Enabled: true
+            EventSourceArn: !GetAtt SqsQueue.Arn
+            FunctionName: !GetAtt ReportFunction.Arn
