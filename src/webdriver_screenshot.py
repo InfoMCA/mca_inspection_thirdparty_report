@@ -145,9 +145,14 @@ class WebDriverScreenshot:
         get_report.click()
         time.sleep(5)
 
-        driver.switch_to.window(driver.window_handles[1])
-        save_pdf(driver, filename)
-        driver.quit()
+        try:
+            driver.switch_to.window(driver.window_handles[1])
+            save_pdf(driver, filename)
+            driver.quit()
+            return True
+        except Exception:
+            driver.quit()
+            return False
 
     def save_manheim_report(self, filename, username, password, vin, mileage, grade, color):
         chrome_options = self.__get_default_chrome_options()

@@ -19,26 +19,26 @@ AUTONIQ_USERNAME = "highbid"
 AUTONIQ_PASSWORD = "112111"
 
 
+def delete_tmp_files():
+    files_in_directory = os.listdir('/tmp')
+    filtered_files = [file for file in files_in_directory if file.endswith(".pdf")]
+    for file in filtered_files:
+        path_to_file = os.path.join('/tmp', file)
+        os.remove(path_to_file)
+
+
 def lambda_handler(event, context):
-    logger.info('## ENVIRONMENT VARIABLES')
-    logger.info(os.environ)
     logger.info(event)
+    delete_tmp_files()
 
     for record in event['Records']:
         lead_id = record["body"]
         logger.info("id:" + lead_id)
         key = {'id': lead_id}
         aws = AwsService()
-        id_valid = aws.item_exist('LeadManagement_Leads_Ready', key) or \
-                   aws.item_exist('LeadManagement_Leads_Followup', key) or \
-                   aws.item_exist('LeadManagement_Leads_Approval', key)
+        id_valid = aws.item_exist('LeadManagements_Leads', key)
         if id_valid:
-            if aws.item_exist('LeadManagement_Leads_Ready', key):
-                response = aws.get_item('LeadManagement_Leads_Ready', key)
-            elif aws.item_exist('LeadManagement_Leads_Followup', key):
-                response = aws.get_item('LeadManagement_Leads_Followup', key)
-            else:
-                response = aws.get_item('LeadManagement_Leads_Approval', key)
+            response = aws.get_item('LeadManagements_Leads', key)
             logger.info(response)
             if 'vin' in response and len(response['vin']) == 17:
                 vin = str(response['vin'])
@@ -51,29 +51,30 @@ def lambda_handler(event, context):
                 autoniq_report_name = "autoniq-" + vin
                 logger.info(autoniq_report_name)
 
-                logger.info(int(response['mileage']))
-                logger.info(float(response['estimatedCr']))
-
-                driver.save_carfax_report('/tmp/' + carfax_report_name, CARFAX_USERNAME, CARFAX_PASSWORD, vin)
-                # Upload generated screenshot files to S3 bucket.
-                s3.upload_file('/tmp/' + carfax_report_name + ".pdf",
-                               os.environ['BUCKET'],
-                               'session_{}/carfax.pdf'.format(lead_id))
-                logger.info('Upload Completed to session_{}/carfax.pdf'.format(lead_id))
-
-                manheim_report_created = driver.save_manheim_report('/tmp/' + manheim_report_name,
-                                                                    MANHEIM_USERNAME,
-                                                                    MANHEIM_PASSWORD,
-                                                                    vin,
-                                                                    int(response['mileage']),
-                                                                    str(float(response['estimatedCr'])),
-                                                                    response['color'])
-                logger.info("Manheim Report is created:" + str(manheim_report_created))
-                if manheim_report_created:
-                    s3.upload_file('/tmp/' + manheim_report_name + ".pdf",
+                carfax_report_created = driver.save_carfax_report('/tmp/' + carfax_report_name, CARFAX_USERNAME, CARFAX_PASSWORD, vin)
+                if carfax_report_created:
+                    s3.upload_file('/tmp/' + carfax_report_name + ".pdf",
                                    os.environ['BUCKET'],
-                                   'session_{}/manheim.pdf'.format(lead_id))
-                    logger.info('Upload Completed to session_{}/manheim.pdf'.format(lead_id))
+                                   'session_{}/carfax.pdf'.format(lead_id))
+                    logger.info('Upload Completed to session_{}/carfax.pdf'.format(lead_id))
+
+                if ('mileage' in response) and ('estimatedCr' in response) and ('color' in response):
+                    logger.info(int(response['mileage']))
+                    logger.info(float(response['estimatedCr']))
+
+                    manheim_report_created = driver.save_manheim_report('/tmp/' + manheim_report_name,
+                                                                        MANHEIM_USERNAME,
+                                                                        MANHEIM_PASSWORD,
+                                                                        vin,
+                                                                        int(response['mileage']),
+                                                                        str(float(response['estimatedCr'])),
+                                                                        response['color'])
+                    logger.info("Manheim Report is created:" + str(manheim_report_created))
+                    if manheim_report_created:
+                        s3.upload_file('/tmp/' + manheim_report_name + ".pdf",
+                                       os.environ['BUCKET'],
+                                       'session_{}/manheim.pdf'.format(lead_id))
+                        logger.info('Upload Completed to session_{}/manheim.pdf'.format(lead_id))
                 driver.save_autoniq_report('/tmp/' + autoniq_report_name,
                                            AUTONIQ_USERNAME, AUTONIQ_PASSWORD, vin)
                 s3.upload_file('/tmp/' + autoniq_report_name + ".png",
@@ -81,4 +82,6 @@ def lambda_handler(event, context):
                                'session_{}/autoniq.png'.format(lead_id))
                 logger.info('Upload Completed to session_{}/autoniq.png'.format(lead_id))
                 driver.close()
+
+    delete_tmp_files()
 
