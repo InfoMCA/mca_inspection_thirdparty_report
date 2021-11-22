@@ -36,9 +36,9 @@ def lambda_handler(event, context):
         logger.info("id:" + lead_id)
         key = {'id': lead_id}
         aws = AwsService()
-        id_valid = aws.item_exist('LeadManagements_Leads', key)
+        id_valid = aws.item_exist('LeadManagement_Leads', key)
         if id_valid:
-            response = aws.get_item('LeadManagements_Leads', key)
+            response = aws.get_item('LeadManagement_Leads', key)
             logger.info(response)
             if 'vin' in response and len(response['vin']) == 17:
                 vin = str(response['vin'])

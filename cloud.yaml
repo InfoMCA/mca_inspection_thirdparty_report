@@ -116,7 +116,7 @@ Resources:
         Type: "AWS::SQS::Queue"
         Properties:
             QueueName: "IdQueue"
-            VisibilityTimeout: 120
+            VisibilityTimeout: 300
 
     LambdaFunctionEventSourceMapping:
         Type: AWS::Lambda::EventSourceMapping
