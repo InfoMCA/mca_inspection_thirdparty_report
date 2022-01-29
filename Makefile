@@ -42,19 +42,19 @@ lambda-function-build-update: clean
 	cd deploy; zip -9qr deploy.zip .
 	cp deploy/deploy.zip .
 	rm -rf deploy
-	aws s3 cp deploy.zip s3://${BUCKET}/src/LeadManagementReport.zip
-	aws_output=`aws lambda update-function-code  --function-name lead-management-report --s3-bucket ${BUCKET} --s3-key src/LeadManagementReport.zip`
+	aws s3 cp deploy.zip s3://${BUCKET}/src/Lead3rdpartyReport.zip
+	aws_output=`aws lambda update-function-code  --function-name lead-3rdparty-report --s3-bucket ${BUCKET} --s3-key src/Lead3rdpartyReport.zip`
 
 ## create CloudFormation stack with lambda function and role.
 ## usage:	make BUCKET=your_bucket_name create-stack 
 create-stack-upload:
 	aws s3 cp layer.zip s3://${BUCKET}/src/SeleniumChromiumLayer.zip
-	aws s3 cp deploy.zip s3://${BUCKET}/src/LeadManagementReport.zip
-	aws cloudformation create-stack --stack-name lead-management-report --template-body file://cloud.yaml --parameters ParameterKey=BucketName,ParameterValue=${BUCKET} --capabilities CAPABILITY_IAM
+	aws s3 cp deploy.zip s3://${BUCKET}/src/Lead3rdpartyReport.zip
+	aws cloudformation create-stack --stack-name lead-3rdparty-report --template-body file://cloud.yaml --parameters ParameterKey=BucketName,ParameterValue=${BUCKET} --capabilities CAPABILITY_IAM
 
 create-stack:
-	aws s3 cp deploy.zip s3://${BUCKET}/src/LeadManagementReport.zip
-	aws cloudformation create-stack --stack-name lead-management-report --template-body file://cloud.yaml --parameters ParameterKey=BucketName,ParameterValue=${BUCKET} --capabilities CAPABILITY_IAM
+	aws s3 cp deploy.zip s3://${BUCKET}/src/Lead3rdpartyReport.zip
+	aws cloudformation create-stack --stack-name lead-3rdparty-report --template-body file://cloud.yaml --parameters ParameterKey=BucketName,ParameterValue=${BUCKET} --capabilities CAPABILITY_IAM
 
 delete-stack:
-	aws cloudformation delete-stack --stack-name lead-management-report
+	aws cloudformation delete-stack --stack-name lead-3rdparty-report
