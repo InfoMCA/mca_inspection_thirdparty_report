@@ -5,8 +5,8 @@ import uuid
 import logging
 from base64 import b64decode
 
+import requests
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException, WebDriverException, TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
@@ -89,15 +89,15 @@ class WebDriverScreenshot:
 
         #chrome_options.add_argument('--disable-gpu')
         for argument in lambda_options:
-            chrome_options.add_argument(argument)          
+            chrome_options.add_argument(argument)
         chrome_options.add_argument('--user-data-dir={}'.format(self._tmp_folder + '/user-data'))
         chrome_options.add_argument('--data-path={}'.format(self._tmp_folder + '/data-path'))
         chrome_options.add_argument('--homedir={}'.format(self._tmp_folder))
         chrome_options.add_argument('--disk-cache-dir={}'.format(self._tmp_folder + '/cache-dir'))
 
-        chrome_options.binary_location = "/opt/bin/chromium" 
+        chrome_options.binary_location = "/opt/bin/chromium"
 
-        return chrome_options      
+        return chrome_options
 
     def __get_correct_height(self, url, width=1280):
         chrome_options = self.__get_default_chrome_options()
@@ -147,6 +147,15 @@ class WebDriverScreenshot:
 
         try:
             driver.switch_to.window(driver.window_handles[1])
+            title_status = driver.find_element_by_class_name("headerRowIcon").get_attribute("alt")
+            logger.info(title_status)
+            info = driver.find_elements_by_class_name("wrappingDesc.header-row-text")
+            info_list = []
+            for item in info:
+                logger.info(item.text.replace('\n', ' '))
+                info_list.append(item.text.replace('\n', ' '))
+            requests.post('https://leadservices.mycarauction.com/leads/' + vin + '/update-carfax-report',
+                          json={'info': info_list})
             save_pdf(driver, filename)
             driver.quit()
             return True
@@ -266,6 +275,3 @@ class WebDriverScreenshot:
     def close(self):
         # Remove specific tmp dir of this "run"
         shutil.rmtree(self._tmp_folder)
-
-
- 
