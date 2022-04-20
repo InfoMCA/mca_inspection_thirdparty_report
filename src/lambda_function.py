@@ -4,6 +4,7 @@ import boto3
 import os
 import logging
 
+from carfax_report import get_carfax_highlight
 from webdriver_screenshot import WebDriverScreenshot
 
 logger = logging.getLogger()
@@ -28,15 +29,21 @@ def delete_tmp_files():
         os.remove(path_to_file)
 
 
-def lambda_handler(event, context):
+def lambda_handler(event, _):
     logger.info(event)
     delete_tmp_files()
+    if 'Records' in event.keys():
+        get_all_report(event)
+    else:
+        return get_carfax_highlight(event)
 
+
+def get_all_report(event):
     for record in event['Records']:
         carfax_username = CARFAX_USERNAME
         carfax_password = CARFAX_PASSWORD
         logger.info(record["body"])
-        if (len(record["body"]) != 17):
+        if len(record["body"]) != 17:
             message = json.loads(record["body"])
             vin = message["vin"]
             if "carFaxUsername" in message:
@@ -55,7 +62,8 @@ def lambda_handler(event, context):
             autoniq_report_name = vin + "_autoniq"
             logger.info(autoniq_report_name)
 
-            carfax_report_created = driver.save_carfax_report('/tmp/' + carfax_report_name, carfax_username, carfax_password, vin)
+            carfax_report_created = \
+                driver.save_carfax_report('/tmp/' + carfax_report_name, carfax_username, carfax_password, vin)
             if carfax_report_created:
                 s3.upload_file('/tmp/' + carfax_report_name + ".pdf",
                                os.environ['BUCKET'],
@@ -89,5 +97,4 @@ def lambda_handler(event, context):
                            'car_report/{}_autoniq.png'.format(vin))
             logger.info('Upload Completed to car_report/{}_autoniq.png'.format(vin))
             driver.close()
-
     delete_tmp_files()

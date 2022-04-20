@@ -272,6 +272,43 @@ class WebDriverScreenshot:
         driver.save_screenshot(filename + ".png")
         driver.quit()
 
+    def get_carfax_highlight(self, username, password, vin, width=1280):
+        chrome_options = self.__get_default_chrome_options()
+        chrome_options.add_argument('--window-size={}x{}'.format(width, 4000))
+        chrome_options.add_argument('--hide-scrollbars')
+
+        driver = webdriver.Chrome(chrome_options=chrome_options)
+        logger.info('Using Chromium version: {}'.format(driver.capabilities['browserVersion']))
+
+        driver.get("http://www.carfaxonline.com/login")
+        username_input = driver.find_element_by_id("username")
+        password_input = driver.find_element_by_id("password")
+        username_input.send_keys(username)
+        password_input.send_keys(password)
+        login = driver.find_element_by_id("login_button")
+        login.click()
+        WebDriverWait(driver, 10).until(expected_conditions.presence_of_element_located((By.ID, 'vin')))
+
+        vin_input = driver.find_element_by_id("vin")
+        vin_input.send_keys(vin)
+        get_report = driver.find_element_by_id("header_run_vhr_button")
+        get_report.click()
+        time.sleep(5)
+        info_list = []
+
+        try:
+            driver.switch_to.window(driver.window_handles[1])
+            title_status = driver.find_element_by_class_name("headerRowIcon").get_attribute("alt")
+            logger.info(title_status)
+            info = driver.find_elements_by_class_name("wrappingDesc.header-row-text")
+            for item in info:
+                logger.info(item.text.replace('\n', ' '))
+                info_list.append(item.text.replace('\n', ' '))
+            driver.quit()
+        except Exception:
+            driver.quit()
+        return info_list
+
     def close(self):
         # Remove specific tmp dir of this "run"
         shutil.rmtree(self._tmp_folder)
